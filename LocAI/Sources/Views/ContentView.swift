@@ -5,7 +5,7 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            LiquidBackdrop()
+            StaticBackdrop()
 
             TabView {
                 Tab(Loc.t("tab_chat", lang: settings.languageCode), systemImage: "bubble.left.and.bubble.right.fill") {
@@ -21,8 +21,6 @@ struct ContentView: View {
                     TuningView()
                 }
             }
-            // The system TabView already renders its bar as Liquid Glass
-            // on macOS 26 / iOS 26 - no manual styling needed here.
         }
     }
 }

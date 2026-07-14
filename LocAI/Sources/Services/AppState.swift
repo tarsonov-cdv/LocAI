@@ -58,6 +58,7 @@ final class AppState {
 
     func send(text: String, settings: AppSettings) {
         guard let backend else { return }
+        guard !isGenerating else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 

@@ -12,7 +12,6 @@ struct LocAIApp: App {
                 .environment(settings)
                 .environment(appState)
                 .environment(modelManager)
-                .preferredColorScheme(.dark) // liquid glass reads best over a dark canvas
                 .onAppear {
                     modelManager.ensureDirectories(base: settings.modelsBaseDir)
                     modelManager.refresh(base: settings.modelsBaseDir)

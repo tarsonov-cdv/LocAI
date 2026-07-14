@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ChatView: View {
+    @FocusState private var inputFocused: Bool
     @Environment(AppState.self) private var appState
     @Environment(AppSettings.self) private var settings
     @State private var inputText: String = ""
@@ -18,6 +19,17 @@ struct ChatView: View {
                     ? Loc.t("no_model_loaded", lang: lang)
                     : "\(Loc.t("loaded_model", lang: lang)) \(appState.loadedModelLabel)"
             )
+            GlassActionButton(
+
+                title: "Hide",
+
+                systemImage: "keyboard.chevron.compact.down"
+
+            ) {
+
+                inputFocused = false
+
+            }
 
             tokenCounterBar
 
@@ -91,6 +103,7 @@ struct ChatView: View {
             )
             .lineLimit(1...4)
             .textFieldStyle(.plain)
+            .focused($inputFocused)
             .padding(12)
             .staticBlurPanel(cornerRadius: 14)
             .onSubmit(sendMessage)
@@ -115,8 +128,11 @@ struct ChatView: View {
 
     private func sendMessage() {
         guard appState.backend != nil else { return }
+        guard !appState.isGenerating else { return }
+    
         let text = inputText
         inputText = ""
+        inputFocused = false
         appState.send(text: text, settings: settings)
     }
 }

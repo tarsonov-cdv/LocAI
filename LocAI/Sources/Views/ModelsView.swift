@@ -255,24 +255,45 @@ struct ModelsView: View {
         isDownloading = true
         downloadProgress = 0
         errorMessage = nil
-        taskLabel = Loc.t("ready", lang: settings.languageCode)
+
+        IdleTimerManager.shared.preventSleep()
 
         Task {
+            defer {
+                IdleTimerManager.shared.allowSleep()
+                isDownloading = false
+            }
+
             do {
                 if settings.backend == .llamaCpp, let file = selectedFile {
-                    _ = try await HuggingFaceService.shared.downloadGGUFFile(file, into: settings.modelsBaseDir) { done, total in
-                        Task { @MainActor in downloadProgress = total > 0 ? Double(done) / Double(total) : 0 }
+                    _ = try await HuggingFaceService.shared.downloadGGUFFile(
+                        file,
+                        into: settings.modelsBaseDir
+                    ) { done, total in
+                        Task { @MainActor in
+                            downloadProgress = total > 0
+                            ? Double(done) / Double(total)
+                            : 0
+                        }
                     }
                 } else if settings.backend == .mlx, let repo = selectedRepo {
-                    _ = try await HuggingFaceService.shared.downloadMLXRepo(repoID: repo, into: settings.modelsBaseDir) { done, total in
-                        Task { @MainActor in downloadProgress = total > 0 ? Double(done) / Double(total) : 0 }
+                    _ = try await HuggingFaceService.shared.downloadMLXRepo(
+                        repoID: repo,
+                        into: settings.modelsBaseDir
+                    ) { done, total in
+                        Task { @MainActor in
+                            downloadProgress = total > 0
+                            ? Double(done) / Double(total)
+                            : 0
+                        }
                     }
                 }
+
                 modelManager.refresh(base: settings.modelsBaseDir)
+
             } catch {
                 errorMessage = error.localizedDescription
             }
-            isDownloading = false
         }
     }
 

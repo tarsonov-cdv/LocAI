@@ -14,7 +14,7 @@ struct SettingsView: View {
 
                 GlassCard(title: Loc.t("max_memory", lang: lang)) {
                     HStack {
-                        Slider(value: $settings.budgetGB, in: 2...16, step: 0.5)
+                        Slider(value: $settings.budgetGB, in: memoryBudgetRange, step: 0.5)
                         Text(String(format: "%.1f GB", settings.budgetGB)).monospacedDigit().frame(width: 70)
                     }
                     Toggle(Loc.t("force_swap", lang: lang), isOn: $settings.forceSwap)
@@ -26,19 +26,10 @@ struct SettingsView: View {
                         .frame(minHeight: 90)
                         .scrollContentBackground(.hidden)
                         .padding(8)
-                        .glassEffect(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .staticBlurPanel(cornerRadius: 12)
                 }
 
-                GlassCard {
-                    Toggle(Loc.t("censor_filter", lang: lang), isOn: $settings.censorEnabled)
-                    if settings.censorEnabled {
-                        Text(Loc.t("censor_custom_words", lang: lang)).font(.caption).foregroundStyle(.secondary)
-                        TextField("", text: $settings.censorWords)
-                            .textFieldStyle(.plain)
-                            .padding(8)
-                            .glassEffect(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    }
-                }
+                
 
                 GlassCard(title: Loc.t("select_language", lang: lang)) {
                     Picker(Loc.t("select_language", lang: lang), selection: $settings.languageCode) {
@@ -64,6 +55,14 @@ struct SettingsView: View {
             }
             .padding(16)
         }
+    }
+
+    private var memoryBudgetRange: ClosedRange<Double> {
+        #if os(iOS)
+        2...8
+        #else
+        2...16
+        #endif
     }
 
     #if os(macOS)

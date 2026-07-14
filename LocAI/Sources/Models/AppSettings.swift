@@ -5,7 +5,11 @@ import Observation
 @Observable
 final class AppSettings {
     // Memory / runtime
+    #if os(iOS)
+    var budgetGB: Double = 3.0
+    #else
     var budgetGB: Double = 6.0
+    #endif
     var forceSwap: Bool = false
     var continueResponse: Bool = false   // allow up to 4k tokens instead of 512
 
@@ -26,17 +30,21 @@ final class AppSettings {
         return base.appendingPathComponent("LocAI/models", isDirectory: true)
     }()
 
-    func applyCensoring(to text: String) -> String {
-        guard censorEnabled else { return text }
-        let words = censorWords
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-        var result = text
-        for word in words where !word.isEmpty {
-            let replacement = String(repeating: "*", count: word.count)
-            result = result.replacingOccurrences(of: word, with: replacement, options: .caseInsensitive)
-        }
-        return result
+    var maxResponseTokens: Int {
+        #if os(iOS)
+        continueResponse ? 2048 : 384
+        #else
+        continueResponse ? 4096 : 512
+        #endif
     }
-}
+
+    var maxPromptMessages: Int {
+        #if os(iOS)
+        8
+        #else
+        24
+        #endif
+    }
+
+    }
+

@@ -1,12 +1,7 @@
 import SwiftUI
 
-/// Shared visual language for the whole app - real Liquid Glass via
-/// `.glassEffect()` / `GlassEffectContainer` (macOS 26 / iOS 26 SDK),
-/// not an imitation. Falls back gracefully on older OS versions.
-
-/// A rounded glass "card" wrapping arbitrary content - the workhorse
-/// container used across Chat/Models/Settings/Tuning instead of the old
-/// ttk.LabelFrame boxes.
+/// Shared low-overhead visual language for the whole app using static
+/// SwiftUI materials and standard controls.
 struct GlassCard<Content: View>: View {
     var title: String? = nil
     var tint: Color? = nil
@@ -22,16 +17,11 @@ struct GlassCard<Content: View>: View {
             content()
         }
         .padding(16)
-        .glassEffect(
-            tint.map { Glass.regular.tint($0) } ?? Glass.regular,
-            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
-        )
+        .staticBlurPanel(cornerRadius: 18, tint: tint)
     }
 }
 
-/// A pill-shaped glass button for primary actions (Send, Download, Start
-/// tuning, ...). Uses the system `.glass`/`.glassProminent` button styles
-/// so it matches native controls exactly rather than a hand-drawn look.
+/// Standard action button wrapper used across the app.
 struct GlassActionButton: View {
     let title: String
     var systemImage: String? = nil
@@ -50,64 +40,76 @@ struct GlassActionButton: View {
             }
             .padding(.horizontal, 4)
         }
-        .buttonStyle(.glass)
-        .tint(prominent ? Color.accentColor : nil)
+        .standardActionStyle(prominent: prominent)
         .disabled(isDisabled)
     }
 }
 
-/// Page header used at the top of each tab - big glass title bar.
+/// Page header used at the top of each tab.
 struct GlassHeader: View {
     let title: String
     let subtitle: String?
 
     var body: some View {
-        GlassEffectContainer {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.largeTitle.bold())
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.largeTitle.bold())
+            if let subtitle {
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(in: RoundedRectangle(cornerRadius: 26, style: .continuous))
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .staticBlurPanel(cornerRadius: 20)
     }
 }
 
-/// Full-window animated backdrop the glass cards sit above. Liquid Glass
-/// is a *translucency* effect - it needs varied color/light behind it to
-/// read as "glass" rather than flat frosted gray, so we paint soft
-/// drifting color blobs behind the whole app.
-struct LiquidBackdrop: View {
-    @State private var animate = false
-
+struct StaticBackdrop: View {
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
-            Canvas { context, size in
-                let t = timeline.date.timeIntervalSinceReferenceDate
-                let blobs: [(Color, CGFloat, CGFloat, CGFloat)] = [
-                    (.indigo, 0.30 + 0.05 * CGFloat(sin(t * 0.05)), 0.25, 0.55),
-                    (.purple, 0.70 + 0.05 * CGFloat(cos(t * 0.04)), 0.65, 0.5),
-                    (.teal,   0.45 + 0.06 * CGFloat(sin(t * 0.03 + 2)), 0.85, 0.45),
-                ]
-                for (color, relX, relY, relRadius) in blobs {
-                    let center = CGPoint(x: size.width * relX, y: size.height * relY)
-                    let radius = size.width * relRadius
-                    let gradient = Gradient(colors: [color.opacity(0.55), color.opacity(0.0)])
-                    context.fill(
-                        Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)),
-                        with: .radialGradient(gradient, center: center, startRadius: 0, endRadius: radius)
-                    )
+        platformBackground
+            .ignoresSafeArea()
+    }
+
+    private var platformBackground: Color {
+        #if os(iOS)
+        Color(uiColor: .systemGroupedBackground)
+        #elseif os(macOS)
+        Color(nsColor: .windowBackgroundColor)
+        #else
+        Color(.systemBackground)
+        #endif
+    }
+}
+
+extension View {
+    func staticBlurPanel(cornerRadius: CGFloat, tint: Color? = nil) -> some View {
+        background {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(.regularMaterial)
+                .overlay {
+                    if let tint {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(tint.opacity(0.08))
+                    }
                 }
-            }
         }
-        .background(Color.black)
-        .ignoresSafeArea()
+        .overlay {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(.separator.opacity(0.35), lineWidth: 1)
+        }
+    }
+
+    @ViewBuilder
+    func standardActionStyle(prominent: Bool) -> some View {
+        if prominent {
+            self
+                .buttonStyle(.borderedProminent)
+                .tint(.accentColor)
+        } else {
+            self.buttonStyle(.bordered)
+        }
     }
 }

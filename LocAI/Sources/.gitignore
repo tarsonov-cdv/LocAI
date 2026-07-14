@@ -1,0 +1,21 @@
+# Xcode
+.DS_Store
+DerivedData/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+
+# SwiftPM
+.build/
+.swiftpm/
+
+# Models
+*.safetensors
+*.gguf
+models/
+
+# macOS
+.DS_Store
+
+# User settings
+xcuserdata/
