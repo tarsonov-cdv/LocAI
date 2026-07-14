@@ -1,0 +1,135 @@
+# Third-Party Software Notices
+
+LocAI uses the following third-party software and libraries.
+
+## Apple Frameworks
+
+LocAI is built using Apple's development frameworks, including:
+
+- Swift
+- SwiftUI
+- Foundation
+- Observation
+- Metal (through MLX backend)
+
+These components are provided by Apple and are subject to Apple's Software License Agreement.
+
+More information:
+https://developer.apple.com/
+
+---
+
+## MLX
+
+LocAI uses MLX and MLX Swift libraries for on-device machine learning inference on Apple Silicon devices.
+
+Project:
+https://github.com/ml-explore/mlx
+
+License:
+MIT License
+
+Copyright (c) Apple Inc.
+
+---
+
+## mlx-swift-examples
+
+LocAI uses components and examples from mlx-swift-examples, including MLX LLM utilities.
+
+Project:
+https://github.com/ml-explore/mlx-swift-examples
+
+License:
+MIT License
+
+Copyright (c) Apple Inc.
+
+---
+
+## MLX Swift Packages
+
+The following MLX Swift packages are used:
+
+- MLX
+- MLXNN
+- MLXOptimizers
+- MLXLLM
+- MLXLMCommon
+
+Source:
+https://github.com/ml-explore/mlx-swift
+
+License:
+MIT License
+
+Copyright (c) Apple Inc.
+
+---
+
+## Hugging Face Hub
+
+LocAI can download compatible machine learning models from Hugging Face repositories.
+
+Hugging Face services and hosted models are subject to their respective licenses.
+
+Website:
+https://huggingface.co/
+
+Individual model licenses may vary and must be checked before redistribution.
+
+---
+
+## llama.cpp
+
+LocAI may use llama.cpp for GGUF model inference.
+
+Project:
+https://github.com/ggerganov/llama.cpp
+
+License:
+MIT License
+
+Copyright (c) Georgi Gerganov and contributors.
+
+---
+
+## Tokenizers
+
+LocAI may use tokenizer components provided by the Hugging Face Tokenizers ecosystem.
+
+Project:
+https://github.com/huggingface/tokenizers
+
+License:
+Apache License 2.0
+
+Copyright (c) Hugging Face Inc.
+
+---
+
+## Model Licenses
+
+LocAI does not redistribute AI model weights.
+
+Users are responsible for ensuring compliance with the license terms of any downloaded model.
+
+Examples of possible model licenses include:
+
+- Apache License 2.0
+- MIT License
+- Gemma Terms of Use
+- Llama Community License
+- Qwen License
+- Other custom model licenses
+
+Always verify the license of the specific model before commercial use or redistribution.
+
+---
+
+## Disclaimer
+
+LocAI is an independent project and is not affiliated with Apple Inc.,
+Hugging Face Inc., or any model provider.
+
+Third-party names and trademarks belong to their respective owners.
