@@ -12,6 +12,7 @@ final class AppSettings {
     #endif
     var forceSwap: Bool = false
     var continueResponse: Bool = false   // allow up to 4k tokens instead of 512
+    var semanticMemoryEnabled: Bool = true
 
     // Backend selection
     var backend: Backend = .mlx
@@ -47,4 +48,3 @@ final class AppSettings {
     }
 
     }
-

@@ -14,6 +14,15 @@
             symbolName = "objc_exception_throw"
             moduleName = "">
             <Locations>
+               <Location
+                  uuid = "2466D8F2-DF98-4195-99E9-BC03D8F359B5 - ca05e3e8d0103ce6"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "objc_exception_throw"
+                  moduleName = "libobjc.A.dylib"
+                  usesParentBreakpointCondition = "Yes">
+               </Location>
             </Locations>
          </BreakpointContent>
       </BreakpointProxy>
@@ -27,6 +36,15 @@
             symbolName = "_objc_fatal"
             moduleName = "">
             <Locations>
+               <Location
+                  uuid = "DE7BCA04-2306-47D4-B9F4-30ED216EA627 - a81f56800ebedb22"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "_objc_fatal(char const*, ...)"
+                  moduleName = "libobjc.A.dylib"
+                  usesParentBreakpointCondition = "Yes">
+               </Location>
             </Locations>
          </BreakpointContent>
       </BreakpointProxy>
@@ -40,7 +58,32 @@
             symbolName = "objc_defaultForwardHandler"
             moduleName = "">
             <Locations>
+               <Location
+                  uuid = "E96432A2-A123-4EB9-BA67-0D83A63E0078 - 7e690d990c42cfe5"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "objc_defaultForwardHandler(objc_object*, objc_selector*)"
+                  moduleName = "libobjc.A.dylib"
+                  usesParentBreakpointCondition = "Yes">
+               </Location>
             </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "1045EB49-4D00-45C4-B6D3-4596DB6A3968"
+            shouldBeEnabled = "No"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "LocAI/Sources/Services/LoRATrainingManager.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "121"
+            endingLineNumber = "121"
+            landmarkName = "LoRATrainingConfiguration"
+            landmarkType = "14">
          </BreakpointContent>
       </BreakpointProxy>
    </Breakpoints>

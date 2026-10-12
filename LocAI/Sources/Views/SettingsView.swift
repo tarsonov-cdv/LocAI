@@ -3,6 +3,8 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppSettings.self) private var settingsEnv
     @Environment(ModelManager.self) private var modelManager
+    @Environment(AppState.self) private var appState
+    @FocusState private var systemPromptFocused: Bool
 
     var body: some View {
         @Bindable var settings = settingsEnv
@@ -27,9 +29,29 @@ struct SettingsView: View {
                         .scrollContentBackground(.hidden)
                         .padding(8)
                         .staticBlurPanel(cornerRadius: 12)
+                        .focused($systemPromptFocused)
+
+                    GlassActionButton(
+                        title: Loc.t("hide_keyboard", lang: lang),
+                        systemImage: "keyboard.chevron.compact.down"
+                    ) {
+                        systemPromptFocused = false
+                    }
                 }
 
-                
+                GlassCard(title: Loc.t("semantic_memory", lang: lang)) {
+                    Toggle(Loc.t("semantic_memory_enabled", lang: lang), isOn: $settings.semanticMemoryEnabled)
+                    Text(String(format: Loc.t("semantic_memory_count", lang: lang), appState.semanticMemoryCount))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    GlassActionButton(
+                        title: Loc.t("clear_semantic_memory", lang: lang),
+                        systemImage: "trash",
+                        isDisabled: appState.semanticMemoryCount == 0
+                    ) {
+                        appState.clearSemanticMemory()
+                    }
+                }
 
                 GlassCard(title: Loc.t("select_language", lang: lang)) {
                     Picker(Loc.t("select_language", lang: lang), selection: $settings.languageCode) {

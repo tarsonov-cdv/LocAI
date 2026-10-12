@@ -42,6 +42,24 @@ Designed for Apple Silicon devices with a focus on performance, privacy and effi
 
 ---
 
+### 🧠 Semantic memory
+
+- Saves completed question-and-answer pairs locally on the device
+- Retrieves only the most relevant prior context for a new request
+- Works offline with multilingual word and character vectors; no embedding model or cloud service is required
+- Can be disabled or cleared at any time from Settings
+
+---
+
+### ✨ Local LoRA fine-tuning
+
+- Trains adapter weights only, preserving the downloaded base model
+- Uses MLX Swift's training, validation, Adam optimizer, and checkpoint loop
+- Reads one local `.json`, `.jsonl`, or `.txt` dataset file and splits it for training and validation
+- Saves `adapter.safetensors` in the chosen output folder
+
+---
+
 ### 📦 Built-in model manager
 
 LocAI handles model management inside the app:
