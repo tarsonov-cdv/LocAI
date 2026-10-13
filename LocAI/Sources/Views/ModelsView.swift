@@ -75,6 +75,10 @@ struct ModelsView: View {
                     }
                 }
 
+                GlassCard(title: Loc.t("adapter_title", lang: lang)) {
+                    adaptersList
+                }
+
                 GlassCard(title: Loc.t("downloaded_models", lang: lang)) {
                     localModelsList
                 }
@@ -170,6 +174,81 @@ struct ModelsView: View {
         }
     }
 
+    /// LoRA / QLoRA adapters produced in the Tuning tab. The chosen one is
+    /// applied when a model is loaded with the play button below.
+    private var adaptersList: some View {
+        let lang = settings.languageCode
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(Loc.t("adapter_note", lang: lang))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if let notice = appState.adapterNotice {
+                Text(notice).font(.caption).foregroundStyle(.orange)
+            }
+            if modelManager.localAdapters.isEmpty {
+                Text(Loc.t("adapter_empty", lang: lang)).foregroundStyle(.secondary)
+            } else {
+                adapterRow(
+                    title: Loc.t("adapter_none", lang: lang),
+                    subtitle: nil,
+                    isSelected: settings.activeAdapterID == nil,
+                    select: { settings.activeAdapterID = nil },
+                    delete: nil
+                )
+                ForEach(modelManager.localAdapters) { adapter in
+                    adapterRow(
+                        title: adapter.displayName,
+                        subtitle: adapterSubtitle(adapter),
+                        isSelected: settings.activeAdapterID == adapter.id,
+                        select: { settings.activeAdapterID = adapter.id },
+                        delete: { deleteAdapter(adapter) }
+                    )
+                }
+            }
+        }
+    }
+
+    private func adapterSubtitle(_ adapter: LoRAAdapter) -> String {
+        let kind = adapter.metadata.quantizationBits.map { "QLoRA \($0)-bit" } ?? "LoRA"
+        return "\(kind) · \(adapter.metadata.baseModel.replacingOccurrences(of: "__", with: "/")) · \(adapter.metadata.iterations) it"
+    }
+
+    private func adapterRow(title: String, subtitle: String?, isSelected: Bool, select: @escaping () -> Void, delete: (() -> Void)?) -> some View {
+        HStack {
+            Button(action: select) {
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text(title)
+                        if let subtitle {
+                            Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(Color.accentColor)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if let delete {
+                Button(role: .destructive, action: delete) {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(6)
+        .background(isSelected ? Color.accentColor.opacity(0.25) : .clear, in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func deleteAdapter(_ adapter: LoRAAdapter) {
+        if settings.activeAdapterID == adapter.id { settings.activeAdapterID = nil }
+        try? modelManager.delete(adapter)
+        modelManager.refresh(base: settings.modelsBaseDir)
+    }
+
     private var localModelsList: some View {
         VStack(alignment: .leading, spacing: 2) {
             if modelManager.localModels.isEmpty {
@@ -182,6 +261,9 @@ struct ModelsView: View {
                             Text(model.displayName)
                             if appState.loadedModelPath == model.path {
                                 Text("●").foregroundStyle(.green).font(.caption)
+                                if let adapterName = appState.loadedAdapterName {
+                                    Text("+ LoRA \(adapterName)").font(.caption).foregroundStyle(.secondary)
+                                }
                             }
                         }
                         Text("\(model.backend.rawValue) · \(String(format: "%.2f GB", Double(model.sizeBytes) / 1_073_741_824.0))")

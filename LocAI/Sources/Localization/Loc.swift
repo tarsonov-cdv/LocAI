@@ -13,8 +13,13 @@ enum Loc {
     ]
 
     static func t(_ key: String, lang: String, _ args: CVarArg...) -> String {
-        let dict = table[lang] ?? table["en"]!
-        let raw = dict[key] ?? table["en"]?[key] ?? key
+        // `extraTable` (LocExtras.swift) is checked first so it can also refine
+        // older strings; each language falls back to English, then to the key.
+        let raw = extraTable[lang]?[key]
+            ?? table[lang]?[key]
+            ?? extraTable["en"]?[key]
+            ?? table["en"]?[key]
+            ?? key
         return args.isEmpty ? raw : String(format: raw, arguments: args)
     }
 

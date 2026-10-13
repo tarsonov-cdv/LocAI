@@ -51,12 +51,29 @@ Designed for Apple Silicon devices with a focus on performance, privacy and effi
 
 ---
 
-### ✨ Local LoRA fine-tuning
+### ✨ Local LoRA / QLoRA fine-tuning
 
 - Trains adapter weights only, preserving the downloaded base model
-- Uses MLX Swift's training, validation, Adam optimizer, and checkpoint loop
-- Reads one local `.json`, `.jsonl`, or `.txt` dataset file and splits it for training and validation
-- Saves `adapter.safetensors` in the chosen output folder
+- **QLoRA is automatic**: on a quantized base model (e.g. `mlx-community/...-4bit`) MLX trains the adapter on top of the frozen 4-bit weights; on a full-precision model it is plain LoRA. The Tuning tab shows which one you are about to run
+- Uses MLX Swift's training, validation, Adam optimizer, and checkpoint loop (learning rate, LoRA layers, batch size, iterations are configurable; training can be stopped and still saves the adapter)
+- Reads one local `.json`, `.jsonl`, or `.txt` file (`text`, `prompt`/`completion`, `instruction`/`output`, `question`/`answer`, or `messages`) and splits it for training and validation
+- Saves to `<models folder>/adapters/<model>-<timestamp>/` (`adapter.safetensors` + `locai_adapter.json`), with an optional extra copy to a folder you choose
+- **Use the adapter in chat**: pick it in the Models tab (or press "Use in chat" after training); it is applied when the model is loaded. An adapter only works with the base model it was trained on
+- The loaded chat model is unloaded during training to free memory
+
+---
+
+### 💻 Terminal access for models (macOS)
+
+Off by default and reset on every launch. Enable it in Settings → *Terminal access*.
+
+- The model asks for a command by writing `<terminal>command</terminal>`; LocAI runs it with `/bin/zsh`, feeds the output back and the model continues (up to *Max commands per reply*, then it must answer)
+- Works with every model and backend because it is a plain-text protocol, not native tool calling; small models follow it less reliably than large ones
+- **Every command asks for confirmation** (Run / Deny) unless *Run commands without asking* is switched on
+- Commands run non-interactively with a timeout, stdin closed, and truncated output; Stop kills a running command
+- Not available on iOS/iPadOS (apps cannot spawn processes there)
+- Requires the macOS build to run **without App Sandbox** (already configured in the project: `ENABLE_APP_SANDBOX[sdk=macosx*] = NO`). A sandboxed child shell cannot see your files. Remove that line to turn the sandbox back on; the terminal then only sees the app container
+- Security: a model that reads untrusted text (files, web pages) can be tricked by instructions hidden in it. Keep confirmation on, and read every command before pressing Run
 
 ---
 

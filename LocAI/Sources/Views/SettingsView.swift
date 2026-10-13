@@ -39,6 +39,8 @@ struct SettingsView: View {
                     }
                 }
 
+                terminalCard(lang: lang)
+
                 GlassCard(title: Loc.t("semantic_memory", lang: lang)) {
                     Toggle(Loc.t("semantic_memory_enabled", lang: lang), isOn: $settings.semanticMemoryEnabled)
                     Text(String(format: Loc.t("semantic_memory_count", lang: lang), appState.semanticMemoryCount))
@@ -76,6 +78,47 @@ struct SettingsView: View {
                 }
             }
             .padding(16)
+        }
+    }
+
+    /// Terminal access for the models. macOS only: iOS apps cannot spawn processes.
+    @ViewBuilder
+    private func terminalCard(lang: String) -> some View {
+        @Bindable var settings = settingsEnv
+        GlassCard(title: Loc.t("terminal_access", lang: lang), tint: settings.terminalEnabled ? .orange : nil) {
+            #if os(macOS)
+            Toggle(Loc.t("terminal_enable", lang: lang), isOn: $settings.terminalEnabled)
+            if settings.terminalEnabled {
+                Toggle(Loc.t("terminal_auto_approve", lang: lang), isOn: $settings.terminalAutoApprove)
+                if settings.terminalAutoApprove {
+                    Text(Loc.t("terminal_auto_warning", lang: lang))
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+                LabeledContent(Loc.t("terminal_workdir", lang: lang)) {
+                    TextField("~", text: $settings.terminalWorkingDirectory)
+                        .multilineTextAlignment(.trailing)
+                        .textFieldStyle(.plain)
+                }
+                Stepper(
+                    String(format: Loc.t("terminal_timeout", lang: lang), settings.terminalTimeoutSeconds),
+                    value: $settings.terminalTimeoutSeconds, in: 5...300, step: 5
+                )
+                Stepper(
+                    String(format: Loc.t("terminal_max_steps", lang: lang), settings.terminalMaxSteps),
+                    value: $settings.terminalMaxSteps, in: 1...15
+                )
+                if TerminalService.isSandboxed {
+                    Text(Loc.t("terminal_sandbox_note", lang: lang))
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
+            #else
+            Text(Loc.t("terminal_ios_note", lang: lang))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            #endif
         }
     }
 

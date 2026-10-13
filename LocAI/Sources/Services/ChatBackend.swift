@@ -5,9 +5,11 @@ import Foundation
 protocol ChatBackend: AnyObject {
     /// Loads a local model file/folder and returns the runtime config
     /// derived from the memory budget (see RuntimeConfigCalculator).
-    func load(path: URL, budgetGB: Double, forceSwap: Bool) async throws -> RuntimeConfig
+    /// `adapter` is an optional LoRA / QLoRA adapter trained for this model.
+    func load(path: URL, budgetGB: Double, forceSwap: Bool, adapter: LoRAAdapter?) async throws -> RuntimeConfig
 
-    /// Streams response text deltas for the given chat history.
+    /// Streams response text deltas for the given chat history. Ending the
+    /// iteration early (break / task cancellation) must stop generation.
     func streamChat(messages: [ChatMessage], maxTokens: Int) -> AsyncThrowingStream<String, Error>
 
     func unload()

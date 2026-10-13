@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 struct TuningView: View {
     @Environment(AppSettings.self) private var settings
+    @Environment(AppState.self) private var appState
     @Environment(ModelManager.self) private var modelManager
     @State private var trainer = LoRATrainingManager()
     @State private var datasetPath = ""
@@ -11,12 +12,19 @@ struct TuningView: View {
     @State private var loraLayers = "4"
     @State private var batchSize = "1"
     @State private var iterations = "100"
+    @State private var learningRate = "1e-5"
     @State private var showingDatasetPicker = false
     @State private var showingOutputPicker = false
+    // The URLs returned by the pickers carry the security scope; a URL rebuilt
+    // from the displayed path would not, so keep them next to the text.
+    @State private var pickedDatasetURL: URL?
+    @State private var pickedOutputURL: URL?
+
+    private var mlxModels: [LocalModel] { modelManager.localModels.filter { $0.backend == .mlx } }
+    private var selectedModel: LocalModel? { mlxModels.first { $0.path.path == selectedModelPath } }
 
     var body: some View {
         let lang = settings.languageCode
-        let mlxModels = modelManager.localModels.filter { $0.backend == .mlx }
 
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -29,12 +37,6 @@ struct TuningView: View {
                             Button(Loc.t("open_file", lang: lang)) { showingDatasetPicker = true }
                         }
                     }
-                    LabeledContent(Loc.t("tuning_output", lang: lang)) {
-                        HStack {
-                            TextField("…/LocAI-adapter", text: $outputDir).textFieldStyle(.plain)
-                            Button(Loc.t("open_file", lang: lang)) { showingOutputPicker = true }
-                        }
-                    }
                     LabeledContent(Loc.t("tuning_model", lang: lang)) {
                         Picker("", selection: $selectedModelPath) {
                             Text(Loc.t("tuning_no_model", lang: lang)).tag("")
@@ -44,6 +46,17 @@ struct TuningView: View {
                         }
                         .pickerStyle(.menu)
                         .disabled(mlxModels.isEmpty)
+                    }
+                    if let modeText = trainingModeText(lang: lang) {
+                        Text(modeText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    LabeledContent(Loc.t("tuning_output", lang: lang)) {
+                        HStack {
+                            TextField("…/LocAI-adapter", text: $outputDir).textFieldStyle(.plain)
+                            Button(Loc.t("open_file", lang: lang)) { showingOutputPicker = true }
+                        }
                     }
                 }
 
@@ -57,24 +70,45 @@ struct TuningView: View {
                     LabeledContent(Loc.t("tuning_iterations", lang: lang)) {
                         TextField("100", text: $iterations).multilineTextAlignment(.trailing).textFieldStyle(.plain)
                     }
+                    LabeledContent(Loc.t("tuning_lr", lang: lang)) {
+                        TextField("1e-5", text: $learningRate).multilineTextAlignment(.trailing).textFieldStyle(.plain)
+                    }
                     Text(Loc.t("tuning_data_hint", lang: lang))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(Loc.t("tuning_unload_note", lang: lang))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
                 GlassCard {
-                    GlassActionButton(
-                        title: trainer.isTraining ? Loc.t("tuning_running", lang: lang) : Loc.t("tuning_start", lang: lang),
-                        systemImage: "wand.and.stars",
-                        prominent: true,
-                        isDisabled: trainer.isTraining,
-                        action: startTraining
-                    )
+                    HStack {
+                        GlassActionButton(
+                            title: trainer.isTraining ? Loc.t("tuning_running", lang: lang) : Loc.t("tuning_start", lang: lang),
+                            systemImage: "wand.and.stars",
+                            prominent: true,
+                            isDisabled: trainer.isTraining,
+                            action: startTraining
+                        )
+                        if trainer.isTraining {
+                            GlassActionButton(
+                                title: Loc.t("tuning_stop", lang: lang),
+                                systemImage: "stop.fill",
+                                action: { trainer.stop() }
+                            )
+                        }
+                    }
                     if trainer.isTraining {
                         ProgressView(value: Double(trainer.completedIterations), total: Double(max(trainer.totalIterations, 1)))
                         Text(trainingProgressText(lang: lang))
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                    }
+                    if !trainer.lastLogLine.isEmpty {
+                        Text(trainer.lastLogLine)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
                     }
                     if !trainer.status.isEmpty {
                         Text(trainer.status).font(.caption).foregroundStyle(.secondary)
@@ -82,48 +116,110 @@ struct TuningView: View {
                     if let error = trainer.errorMessage {
                         Text(error).font(.caption).foregroundStyle(.red)
                     }
+                    if !trainer.isTraining, let adapter = trainer.lastAdapter {
+                        GlassActionButton(
+                            title: Loc.t("tuning_use_in_chat", lang: lang),
+                            systemImage: "bubble.left.and.bubble.right.fill",
+                            prominent: true,
+                            action: { useInChat(adapter) }
+                        )
+                    }
                 }
             }
             .padding(16)
         }
-        .onAppear { modelManager.refresh(base: settings.modelsBaseDir) }
-        .fileImporter(isPresented: $showingDatasetPicker, allowedContentTypes: datasetTypes, allowsMultipleSelection: false) {
-            if let path = selectedPath(from: $0) { datasetPath = path }
+        .onAppear {
+            modelManager.refresh(base: settings.modelsBaseDir)
+            selectDefaultModelIfNeeded()
         }
-        .fileImporter(isPresented: $showingOutputPicker, allowedContentTypes: [.folder], allowsMultipleSelection: false) {
-            if let path = selectedPath(from: $0) { outputDir = path }
+        .onChange(of: modelManager.localModels) { selectDefaultModelIfNeeded() }
+        .fileImporter(isPresented: $showingDatasetPicker, allowedContentTypes: datasetTypes, allowsMultipleSelection: false) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                pickedDatasetURL = url
+                datasetPath = url.path
+            }
+        }
+        .fileImporter(isPresented: $showingOutputPicker, allowedContentTypes: [.folder], allowsMultipleSelection: false) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                pickedOutputURL = url
+                outputDir = url.path
+            }
+        }
+    }
+
+    private func selectDefaultModelIfNeeded() {
+        if selectedModel == nil, let first = mlxModels.first {
+            selectedModelPath = first.path.path
         }
     }
 
     private func startTraining() {
-        guard let layers = Int(loraLayers), let batch = Int(batchSize), let steps = Int(iterations) else {
-            trainer.errorMessage = "Training parameters must be whole numbers."
+        let lang = settings.languageCode
+        guard let layers = Int(loraLayers.trimmingCharacters(in: .whitespaces)),
+              let batch = Int(batchSize.trimmingCharacters(in: .whitespaces)),
+              let steps = Int(iterations.trimmingCharacters(in: .whitespaces)),
+              let rate = Float(learningRate.trimmingCharacters(in: .whitespaces)) else {
+            trainer.errorMessage = Loc.t("tuning_numbers", lang: lang)
             return
         }
+        guard let model = selectedModel else {
+            trainer.errorMessage = Loc.t("tuning_pick_model", lang: lang)
+            return
+        }
+        let trimmedDataset = datasetPath.trimmingCharacters(in: .whitespaces)
+        guard !trimmedDataset.isEmpty else {
+            trainer.errorMessage = Loc.t("tuning_pick_dataset", lang: lang)
+            return
+        }
+        let trimmedOutput = outputDir.trimmingCharacters(in: .whitespaces)
 
+        let base = settings.modelsBaseDir
         let configuration = LoRATrainingConfiguration(
-            datasetURL: localURL(for: datasetPath),
-            modelDirectory: localURL(for: selectedModelPath),
-            adapterURL: localURL(for: outputDir).appendingPathComponent("adapter.safetensors"),
+            datasetURL: resolvedURL(path: trimmedDataset, picked: pickedDatasetURL),
+            modelDirectory: model.path,
+            adapterDirectory: modelManager.newAdapterDirectory(base: base, modelName: model.path.lastPathComponent),
+            exportDirectory: trimmedOutput.isEmpty ? nil : resolvedURL(path: trimmedOutput, picked: pickedOutputURL),
             loraLayers: layers,
             batchSize: batch,
             iterations: steps,
-            learningRate: 1e-5
+            learningRate: rate
         )
-        Task { await trainer.train(configuration: configuration) }
+
+        // Training needs the memory the chat model is holding (an 8 GB Mac
+        // cannot keep both a chat copy and a training copy of the model).
+        if appState.backend != nil { appState.unloadActiveModel() }
+
+        Task {
+            await trainer.train(configuration: configuration)
+            modelManager.refresh(base: base)
+        }
     }
 
-    private func localURL(for path: String) -> URL {
-        URL(fileURLWithPath: (path as NSString).expandingTildeInPath).standardizedFileURL
+    /// Makes the finished adapter the active one and reloads its base model with it.
+    private func useInChat(_ adapter: LoRAAdapter) {
+        settings.activeAdapterID = adapter.id
+        modelManager.refresh(base: settings.modelsBaseDir)
+        guard let model = mlxModels.first(where: { adapter.isCompatible(with: $0.path) }) else { return }
+        Task { await appState.loadModel(model, settings: settings) }
+    }
+
+    /// Prefers the picker's (security-scoped) URL when the text still shows its path.
+    private func resolvedURL(path: String, picked: URL?) -> URL {
+        let typed = URL(fileURLWithPath: (path as NSString).expandingTildeInPath).standardizedFileURL
+        if let picked, picked.standardizedFileURL.path == typed.path { return picked }
+        return typed
+    }
+
+    private func trainingModeText(lang: String) -> String? {
+        guard let model = selectedModel else { return nil }
+        if let bits = ModelQuantization.bits(in: model.path) {
+            return Loc.t("tuning_mode_qlora", lang: lang, bits)
+        }
+        return Loc.t("tuning_mode_lora", lang: lang, Double(model.sizeBytes) / 1_073_741_824.0)
     }
 
     private var datasetTypes: [UTType] {
         [.json, UTType(filenameExtension: "jsonl") ?? .json, .plainText]
-    }
-
-    private func selectedPath(from result: Result<[URL], Error>) -> String? {
-        guard case .success(let urls) = result, let url = urls.first else { return nil }
-        return url.path
     }
 
     private func trainingProgressText(lang: String) -> String {

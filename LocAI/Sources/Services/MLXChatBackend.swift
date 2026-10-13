@@ -24,7 +24,7 @@ final class MLXChatBackend: ChatBackend {
     private static let cacheLimitBytes = 32 * 1024 * 1024
     private var container: ModelContainer?
 
-    func load(path: URL, budgetGB: Double, forceSwap: Bool) async throws -> RuntimeConfig {
+    func load(path: URL, budgetGB: Double, forceSwap: Bool, adapter: LoRAAdapter?) async throws -> RuntimeConfig {
         // Keep MLX's reusable buffer cache small so process memory stays
         // available for model weights and KV cache, especially on iOS.
         if forceSwap {
@@ -36,9 +36,31 @@ final class MLXChatBackend: ChatBackend {
         }
 
         let configuration = ModelConfiguration(directory: path)
-        container = try await LLMModelFactory.shared.loadContainer(configuration: configuration)
+        let loaded = try await LLMModelFactory.shared.loadContainer(configuration: configuration)
+
+        if let adapter {
+            try await Self.apply(adapter: adapter, to: loaded)
+        }
+        container = loaded
 
         return RuntimeConfigCalculator.suggest(budgetGB: budgetGB, forceSwap: forceSwap)
+    }
+
+    /// Re-creates the LoRA layers that were used for training and loads the
+    /// trained weights into them. Works the same for LoRA and QLoRA: on a
+    /// quantized base the converted layers are quantized LoRA layers.
+    private static func apply(adapter: LoRAAdapter, to container: ModelContainer) async throws {
+        let layerCount = adapter.metadata.loraLayers
+        let weightsURL = adapter.weightsURL
+        try await container.perform { context in
+            guard let loraModel = context.model as? LoRAModel else {
+                throw NSError(domain: "MLXChatBackend", code: 2, userInfo: [
+                    NSLocalizedDescriptionKey: "This model architecture does not support LoRA adapters."
+                ])
+            }
+            LoRATrain.convert(model: context.model, layers: Array(loraModel.loraLinearLayers().suffix(layerCount)))
+            try LoRATrain.loadLoRAWeights(model: context.model, url: weightsURL)
+        }
     }
 
     func streamChat(messages: [ChatMessage], maxTokens: Int) -> AsyncThrowingStream<String, Error> {
@@ -52,7 +74,7 @@ final class MLXChatBackend: ChatBackend {
             let chatMessages = messages.map { Chat.Message(role: $0.role.asMLXRole, content: $0.content) }
             let parameters = GenerateParameters(maxTokens: maxTokens)
 
-            Task {
+            let task = Task {
                 do {
                     try await container.perform { context in
                         let input = try await context.processor.prepare(input: .init(chat: chatMessages))
@@ -60,7 +82,15 @@ final class MLXChatBackend: ChatBackend {
                         var previousText = ""
 
                         _ = try MLXLMCommon.generate(input: input, parameters: parameters, context: context) { tokens in
+                            // The consumer stopped listening (Stop button, or a
+                            // terminal command was detected): stop generating.
+                            if Task.isCancelled { return .stop }
+
                             let text = context.tokenizer.decode(tokens: tokens)
+
+                            // A multi-byte character (Cyrillic, emoji) can be split
+                            // across tokens; wait for the rest instead of emitting U+FFFD.
+                            if text.hasSuffix("\u{FFFD}") { return .more }
 
                             if text.count > previousText.count {
                                 let delta = String(text.dropFirst(previousText.count))
@@ -69,7 +99,6 @@ final class MLXChatBackend: ChatBackend {
                             }
 
                             return .more
-                  
                         }
                     }
                     continuation.finish()
@@ -77,6 +106,7 @@ final class MLXChatBackend: ChatBackend {
                     continuation.finish(throwing: error)
                 }
             }
+            continuation.onTermination = { _ in task.cancel() }
         }
     }
 
@@ -85,7 +115,7 @@ final class MLXChatBackend: ChatBackend {
         GPU.set(cacheLimit: 0)
     }
 #else
-    func load(path: URL, budgetGB: Double, forceSwap: Bool) async throws -> RuntimeConfig {
+    func load(path: URL, budgetGB: Double, forceSwap: Bool, adapter: LoRAAdapter?) async throws -> RuntimeConfig {
         throw NSError(domain: "MLXChatBackend", code: 501, userInfo: [
             NSLocalizedDescriptionKey: "The MLX backend package is not linked. Add mlx-swift-examples and link MLXLLM + MLXLMCommon to use MLX models."
         ])

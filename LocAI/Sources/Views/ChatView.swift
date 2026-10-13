@@ -37,7 +37,7 @@ struct ChatView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 10) {
                         ForEach(appState.messages) { message in
-                            ChatBubble(message: message)
+                            ChatBubble(message: message, lang: lang)
                                 .id(message.id)
                         }
                     }
@@ -53,9 +53,52 @@ struct ChatView: View {
             }
             .staticBlurPanel(cornerRadius: 18)
 
+            terminalPanel
+
             inputBar
         }
         .padding(16)
+    }
+
+    /// Approval prompt for a command the model wants to run, or a "running" hint.
+    @ViewBuilder
+    private var terminalPanel: some View {
+        let lang = settings.languageCode
+        if let pending = appState.pendingCommand {
+            GlassCard(title: Loc.t("terminal_approval_title", lang: lang), tint: .orange) {
+                ScrollView(.vertical) {
+                    Text(pending.command)
+                        .font(.system(.callout, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxHeight: 120)
+                HStack {
+                    GlassActionButton(
+                        title: Loc.t("terminal_run", lang: lang),
+                        systemImage: "play.fill",
+                        prominent: true
+                    ) {
+                        appState.resolvePendingCommand(approved: true)
+                    }
+                    GlassActionButton(
+                        title: Loc.t("terminal_deny", lang: lang),
+                        systemImage: "xmark"
+                    ) {
+                        appState.resolvePendingCommand(approved: false)
+                    }
+                }
+            }
+        } else if appState.isRunningCommand {
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text(Loc.t("terminal_running", lang: lang))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .padding(.horizontal, 4)
+        }
     }
 
     /// Total tokens committed to the conversation so far vs. the loaded
@@ -109,13 +152,23 @@ struct ChatView: View {
             .onSubmit(sendMessage)
 
             VStack(spacing: 6) {
-                GlassActionButton(
-                    title: Loc.t("send", lang: settings.languageCode),
-                    systemImage: "paperplane.fill",
-                    prominent: true,
-                    isDisabled: appState.backend == nil || appState.isGenerating,
-                    action: sendMessage
-                )
+                if appState.isGenerating {
+                    GlassActionButton(
+                        title: Loc.t("stop", lang: settings.languageCode),
+                        systemImage: "stop.fill",
+                        prominent: true
+                    ) {
+                        appState.stopGeneration()
+                    }
+                } else {
+                    GlassActionButton(
+                        title: Loc.t("send", lang: settings.languageCode),
+                        systemImage: "paperplane.fill",
+                        prominent: true,
+                        isDisabled: appState.backend == nil,
+                        action: sendMessage
+                    )
+                }
                 GlassActionButton(
                     title: Loc.t("clear_chat", lang: settings.languageCode),
                     systemImage: "trash"
@@ -139,10 +192,35 @@ struct ChatView: View {
 
 private struct ChatBubble: View {
     let message: ChatMessage
+    let lang: String
 
     var isUser: Bool { message.role == .user }
+    var isToolResult: Bool { message.kind == .toolResult }
 
     var body: some View {
+        if isToolResult {
+            toolResultBubble
+        } else {
+            messageBubble
+        }
+    }
+
+    /// Terminal output sent back to the model: monospaced, full width, not a "You" bubble.
+    private var toolResultBubble: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label(Loc.t("terminal_output_title", lang: lang), systemImage: "terminal")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(message.content)
+                .font(.system(.caption, design: .monospaced))
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(12)
+        .staticBlurPanel(cornerRadius: 16, tint: .orange)
+    }
+
+    private var messageBubble: some View {
         HStack {
             if isUser { Spacer(minLength: 40) }
             VStack(alignment: .leading, spacing: 4) {

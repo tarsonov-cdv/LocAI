@@ -13,7 +13,7 @@ import Foundation
 /// still work) but throws on load/chat, matching the Python app's
 /// behavior when llama-cpp-python isn't installed.
 final class LlamaCppChatBackend: ChatBackend {
-    func load(path: URL, budgetGB: Double, forceSwap: Bool) async throws -> RuntimeConfig {
+    func load(path: URL, budgetGB: Double, forceSwap: Bool, adapter: LoRAAdapter?) async throws -> RuntimeConfig {
         throw NSError(domain: "LlamaCppChatBackend", code: 501, userInfo: [
             NSLocalizedDescriptionKey: "The llama.cpp (GGUF) backend isn't ported to Swift yet - use MLX for now."
         ])

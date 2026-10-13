@@ -10,15 +10,29 @@ final class ModelManager {
     static let shared = ModelManager()
 
     private(set) var localModels: [LocalModel] = []
+    private(set) var localAdapters: [LoRAAdapter] = []
 
     private let fm = FileManager.default
 
     private func gguf(under base: URL) -> URL { base.appendingPathComponent("gguf", isDirectory: true) }
     private func mlx(under base: URL) -> URL { base.appendingPathComponent("mlx", isDirectory: true) }
+    private func adapters(under base: URL) -> URL { base.appendingPathComponent("adapters", isDirectory: true) }
 
     func ensureDirectories(base: URL) {
         try? fm.createDirectory(at: gguf(under: base), withIntermediateDirectories: true)
         try? fm.createDirectory(at: mlx(under: base), withIntermediateDirectories: true)
+        try? fm.createDirectory(at: adapters(under: base), withIntermediateDirectories: true)
+    }
+
+    /// A fresh, unique folder for a new adapter: `<base>/adapters/<model>-<timestamp>`.
+    /// Training always writes here (inside the app's own storage, which is
+    /// always writable); an optional export copy is made afterwards.
+    func newAdapterDirectory(base: URL, modelName: String) -> URL {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        let name = "\(modelName)-\(formatter.string(from: Date()))"
+        return adapters(under: base).appendingPathComponent(name, isDirectory: true)
     }
 
     /// list_local_gguf_models + list_local_mlx_models combined into one
@@ -50,6 +64,19 @@ final class ModelManager {
         }
 
         localModels = results.sorted { $0.displayName < $1.displayName }
+
+        var foundAdapters: [LoRAAdapter] = []
+        if let dirs = try? fm.contentsOfDirectory(at: adapters(under: base), includingPropertiesForKeys: nil) {
+            for dir in dirs where isDirectory(dir) {
+                if let adapter = LoRAAdapter.load(from: dir) { foundAdapters.append(adapter) }
+            }
+        }
+        localAdapters = foundAdapters.sorted { $0.metadata.createdAt > $1.metadata.createdAt }
+    }
+
+    func delete(_ adapter: LoRAAdapter) throws {
+        guard fm.fileExists(atPath: adapter.directory.path) else { return }
+        try fm.removeItem(at: adapter.directory)
     }
 
     /// delete_local_model: safe for either a single .gguf file or an MLX folder.
@@ -88,7 +115,7 @@ final class ModelManager {
     /// set_models_base_dir(move_existing=true) equivalent.
     func moveModels(from oldBase: URL, to newBase: URL) throws {
         ensureDirectories(base: newBase)
-        for sub in ["gguf", "mlx"] {
+        for sub in ["gguf", "mlx", "adapters"] {
             let oldDir = oldBase.appendingPathComponent(sub, isDirectory: true)
             let newDir = newBase.appendingPathComponent(sub, isDirectory: true)
             guard let items = try? fm.contentsOfDirectory(at: oldDir, includingPropertiesForKeys: nil) else { continue }
